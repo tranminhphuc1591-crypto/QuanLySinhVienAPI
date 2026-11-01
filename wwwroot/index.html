@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Ứng dụng quản lý sinh viên hiện đại trên mô hình dịch vụ web RESTful ASP.NET Core Web API và SQLite">
+  <title>EduManager - Hệ Thống Quản Lý Sinh Viên RESTful Web API</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-logo-icon">🎓</div>
+        <div>
+          <h1 class="brand-title">
+            EduManager API
+            <span class="api-badge"><span class="pulse-dot"></span> RESTful API Live</span>
+          </h1>
+          <p class="brand-subtitle">ASP.NET Core Web API • Entity Framework Core • SQLite</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <a href="/swagger" target="_blank" rel="noopener noreferrer" class="btn btn-swagger" id="swaggerDocBtn" title="Mở Swagger API Explorer">
+          📑 Swagger UI ↗
+        </a>
+        <button class="btn btn-secondary" id="refreshBtn" title="Tải lại toàn bộ dữ liệu">
+          🔄 Làm mới
+        </button>
+        <button class="btn btn-secondary" id="themeToggleBtn" title="Chuyển đổi giao diện sáng/tối">
+          ☀️ Sáng
+        </button>
+      </div>
+    </header>
+
+    <!-- Top Stats Cards -->
+    <section class="stats-grid" aria-label="Thống kê tổng quan">
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Tổng Sinh Viên</div>
+          <div class="stat-value" id="statTotalStudents">--</div>
+          <div class="stat-sub">Đang lưu trữ trong CSDL</div>
+        </div>
+        <div class="stat-icon icon-blue">👥</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Lớp Học Đào Tạo</div>
+          <div class="stat-value" id="statTotalClasses">--</div>
+          <div class="stat-sub">Các chuyên ngành đào tạo</div>
+        </div>
+        <div class="stat-icon icon-cyan">🏫</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Điểm Trung Bình Chung</div>
+          <div class="stat-value" id="statAvgScore">--</div>
+          <div class="stat-sub">Thang điểm 10 toàn trường</div>
+        </div>
+        <div class="stat-icon icon-amber">⭐</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Tỷ Lệ Khá - Giỏi</div>
+          <div class="stat-value" id="statGoodRate">--</div>
+          <div class="stat-sub" id="statGoodSub">Xếp loại học lực</div>
+        </div>
+        <div class="stat-icon icon-emerald">🏆</div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav" aria-label="Điều hướng chính">
+      <button class="tab-btn active" data-tab="sinhvien" id="tabBtnSinhVien">
+        👨‍🎓 Quản Lý Sinh Viên
+      </button>
+      <button class="tab-btn" data-tab="lophoc" id="tabBtnLopHoc">
+        🏢 Danh Sách Lớp Học
+      </button>
+      <button class="tab-btn" data-tab="thongke" id="tabBtnThongKe">
+        📊 Báo Cáo & Thống Kê
+      </button>
+      <button class="tab-btn" data-tab="apitester" id="tabBtnApiTester">
+        ⚡ RESTful API Explorer
+      </button>
+    </nav>
+
+    <!-- TAB 1: Quản lý Sinh viên -->
+    <main class="tab-content active" id="tab-sinhvien">
+      <div class="panel-card">
+        <div class="panel-header">
+          <h2 class="panel-title">Danh Sách Sinh Viên</h2>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary btn-sm" id="exportJsonBtn" title="Xuất dữ liệu sinh viên sang JSON">
+              📥 Xuất JSON
+            </button>
+            <button class="btn btn-primary" id="openAddStudentModalBtn">
+              ➕ Thêm Sinh Viên Mới
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="toolbar-grid">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchStudentInput" placeholder="Tìm theo Mã SV, Họ tên, Email, Số điện thoại..." autocomplete="off">
+          </div>
+
+          <select class="filter-select" id="filterLopHoc" title="Lọc theo lớp học">
+            <option value="">Tất cả lớp học</option>
+          </select>
+
+          <select class="filter-select" id="filterGioiTinh" title="Lọc theo giới tính">
+            <option value="">Tất cả giới tính</option>
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+            <option value="Khác">Khác</option>
+          </select>
+
+          <select class="filter-select" id="filterXepLoai" title="Lọc theo xếp loại">
+            <option value="">Tất cả học lực</option>
+            <option value="Xuất sắc">Xuất sắc (>= 9.0)</option>
+            <option value="Giỏi">Giỏi (8.0 - 8.9)</option>
+            <option value="Khá">Khá (6.5 - 7.9)</option>
+            <option value="Trung bình">Trung bình (5.0 - 6.4)</option>
+            <option value="Yếu">Yếu (&lt; 5.0)</option>
+          </select>
+
+          <select class="filter-select" id="filterTrangThai" title="Lọc theo trạng thái">
+            <option value="">Tất cả trạng thái</option>
+            <option value="Đang học">Đang học</option>
+            <option value="Bảo lưu">Bảo lưu</option>
+            <option value="Đã tốt nghiệp">Đã tốt nghiệp</option>
+            <option value="Đình chỉ">Đình chỉ</option>
+          </select>
+        </div>
+
+        <!-- Students Table -->
+        <div class="table-responsive">
+          <table class="data-table" id="sinhVienTable">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="masv">Mã SV <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="hoten">Họ và Tên <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="ngaysinh">Ngày Sinh & Giới Tính <span class="sort-icon">⇅</span></th>
+                <th>Lớp Học & Khoa</th>
+                <th class="sortable" data-sort="diemtrungbinh">Điểm TB & Xếp Loại <span class="sort-icon">⇅</span></th>
+                <th>Trạng Thái</th>
+                <th style="text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="sinhVienTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-wrapper">
+          <div class="pagination-info" id="paginationInfo">Hiển thị...</div>
+          <div class="pagination-controls" id="paginationControls"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- TAB 2: Danh sách Lớp học -->
+    <section class="tab-content" id="tab-lophoc">
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Quản Lý Lớp Học & Chuyên Ngành</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Danh sách các lớp học chính quy thuộc các khoa đào tạo</p>
+          </div>
+          <button class="btn btn-primary" id="openAddClassModalBtn">
+            ➕ Thêm Lớp Mới
+          </button>
+        </div>
+
+        <div class="class-grid" id="classGridContainer">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Báo cáo & Thống kê -->
+    <section class="tab-content" id="tab-thongke">
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3 class="chart-title">📊 Phân Bổ Xếp Loại Học Lực</h3>
+          <div class="stat-bars-container" id="academicRankingBars">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3 class="chart-title">📌 Tình Trạng Học Vụ Sinh Viên</h3>
+          <div class="stat-bars-container" id="statusBreakdownBars">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3 class="chart-title">🏫 Bảng Tổng Hợp Quy Mô & Điểm Theo Lớp</h3>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Lớp Học</th>
+                <th>Khoa/Viện</th>
+                <th>Sĩ Số Sinh Viên</th>
+                <th>Điểm TB Của Lớp</th>
+              </tr>
+            </thead>
+            <tbody id="classStatsTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: RESTful API Explorer -->
+    <section class="tab-content" id="tab-apitester">
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">⚡ Trực Quan Hóa & Thử Nghiệm RESTful API</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Kiểm thử trực tiếp các HTTP Methods (GET, POST, PUT, DELETE) với backend ASP.NET Core</p>
+          </div>
+          <a href="/swagger" target="_blank" class="btn btn-swagger">
+            Mở Swagger Documentation ↗
+          </a>
+        </div>
+
+        <div class="api-tester-layout">
+          <!-- Endpoints List -->
+          <div class="api-endpoints-list">
+            <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">ENDPOINTS MẪU</div>
+            
+            <button class="endpoint-btn active" data-method="GET" data-url="/api/sinhvien" data-body="">
+              <span class="method-tag method-get">GET</span>
+              <span>/api/sinhvien</span>
+            </button>
+
+            <button class="endpoint-btn" data-method="GET" data-url="/api/sinhvien/1" data-body="">
+              <span class="method-tag method-get">GET</span>
+              <span>/api/sinhvien/{id}</span>
+            </button>
+
+            <button class="endpoint-btn" data-method="GET" data-url="/api/sinhvien?searchTerm=Nguyễn&pageSize=5" data-body="">
+              <span class="method-tag method-get">GET</span>
+              <span>/api/sinhvien?search</span>
+            </button>
+
+            <button class="endpoint-btn" data-method="POST" data-url="/api/sinhvien" data-body='{
+  "maSV": "SV2024999",
+  "hoTen": "Trương Minh Tuấn",
+  "ngaySinh": "2003-08-20",
+  "gioiTinh": "Nam",
+  "email": "tuan.truong@univ.edu.vn",
+  "soDienThoai": "0988776655",
+  "diaChi": "Cầu Giấy, Hà Nội",
+  "diemTrungBinh": 8.7,
+  "trangThai": "Đang học",
+  "lopHocId": 1
+}'>
+              <span class="method-tag method-post">POST</span>
+              <span>/api/sinhvien</span>
+            </button>
+
+            <button class="endpoint-btn" data-method="GET" data-url="/api/lophoc" data-body="">
+              <span class="method-tag method-get">GET</span>
+              <span>/api/lophoc</span>
+            </button>
+
+            <button class="endpoint-btn" data-method="GET" data-url="/api/thongke/tong-quan" data-body="">
+              <span class="method-tag method-get">GET</span>
+              <span>/api/thongke/tong-quan</span>
+            </button>
+          </div>
+
+          <!-- Request & Response Panel -->
+          <div class="api-request-panel">
+            <div class="api-url-bar">
+              <select id="apiTesterMethod" class="filter-select" style="min-width: 90px; font-weight: 700;">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              <input type="text" id="apiTesterUrl" value="/api/sinhvien">
+              <button class="btn btn-primary" id="apiTesterSendBtn">Gửi Request 🚀</button>
+            </div>
+
+            <div>
+              <label class="form-label">Request Body (JSON format dành cho POST / PUT):</label>
+              <textarea id="apiTesterBody" class="form-textarea" style="font-family: monospace; font-size: 0.85rem;" placeholder='{"key": "value"}'></textarea>
+            </div>
+
+            <div>
+              <label class="form-label">Response Trả Về Từ API:</label>
+              <pre class="code-output-area" id="apiTesterResponse">// Nhấn "Gửi Request" để kiểm tra kết quả phản hồi từ ASP.NET Core Web API...</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL: Thêm / Sửa Sinh Viên -->
+  <div class="modal-overlay" id="studentModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="studentModalTitle">Thêm Mới Sinh Viên</h3>
+        <button class="close-btn" id="closeStudentModalBtn">&times;</button>
+      </div>
+
+      <form id="studentForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Mã Sinh Viên <span class="req">*</span></label>
+            <input type="text" id="studentMaSV" class="form-input" required placeholder="Ví dụ: SV2024001">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Họ và Tên <span class="req">*</span></label>
+            <input type="text" id="studentHoTen" class="form-input" required placeholder="Ví dụ: Nguyễn Văn An">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ngày Sinh <span class="req">*</span></label>
+            <input type="date" id="studentNgaySinh" class="form-input" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Giới Tính <span class="req">*</span></label>
+            <select id="studentGioiTinh" class="form-select" required>
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email <span class="req">*</span></label>
+            <input type="email" id="studentEmail" class="form-input" required placeholder="an.nguyen@univ.edu.vn">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Số Điện Thoại <span class="req">*</span></label>
+            <input type="tel" id="studentPhone" class="form-input" required placeholder="0901234567">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Lớp Học Phụ Trách <span class="req">*</span></label>
+            <select id="studentLopHocSelect" class="form-select" required></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Điểm Trung Bình (0.0 - 10.0) <span class="req">*</span></label>
+            <input type="number" id="studentDiem" class="form-input" min="0" max="10" step="0.1" required placeholder="8.5">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Trạng Thái Học Vụ <span class="req">*</span></label>
+            <select id="studentTrangThai" class="form-select" required>
+              <option value="Đang học">Đang học</option>
+              <option value="Bảo lưu">Bảo lưu</option>
+              <option value="Đã tốt nghiệp">Đã tốt nghiệp</option>
+              <option value="Đình chỉ">Đình chỉ</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Địa Chỉ Thường Trú</label>
+            <input type="text" id="studentDiaChi" class="form-input" placeholder="Ví dụ: Cầu Giấy, Hà Nội">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelStudentModalBtn">Hủy Bỏ</button>
+          <button type="submit" class="btn btn-primary" id="saveStudentBtn">Lưu Dữ Liệu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Thêm / Sửa Lớp Học -->
+  <div class="modal-overlay" id="classModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="classModalTitle">Thêm Lớp Học Mới</h3>
+        <button class="close-btn" id="closeClassModalBtn">&times;</button>
+      </div>
+
+      <form id="classForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Mã Lớp <span class="req">*</span></label>
+            <input type="text" id="classMaLop" class="form-input" required placeholder="Ví dụ: CNTT01">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tên Lớp Học <span class="req">*</span></label>
+            <input type="text" id="classTenLop" class="form-input" required placeholder="Ví dụ: Công nghệ Thông tin 01">
+          </div>
+
+          <div class="form-group col-span-2">
+            <label class="form-label">Khoa / Viện Đào Tạo <span class="req">*</span></label>
+            <input type="text" id="classKhoa" class="form-input" required placeholder="Ví dụ: Khoa Công Nghệ Thông Tin">
+          </div>
+
+          <div class="form-group col-span-2">
+            <label class="form-label">Mô Tả Lớp Học</label>
+            <textarea id="classMoTa" class="form-textarea" placeholder="Nhập tóm tắt chương trình hoặc ghi chú về lớp..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelClassModalBtn">Hủy Bỏ</button>
+          <button type="submit" class="btn btn-primary">Lưu Lớp Học</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Xác Nhận Thao Tác -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="confirmModalTitle">Xác Nhận</h3>
+        <button class="close-btn" id="closeConfirmModalBtn">&times;</button>
+      </div>
+      <div id="confirmModalMessage" style="font-size: 0.92rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">
+        Nội dung xác nhận...
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelConfirmModalBtn">Đóng</button>
+        <button type="button" class="btn btn-danger" id="confirmActionBtn">Đồng Ý Xóa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>

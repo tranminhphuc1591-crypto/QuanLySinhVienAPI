@@ -105,8 +105,8 @@
         <div class="panel-header">
           <h2 class="panel-title">Danh Sách Sinh Viên</h2>
           <div style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary btn-sm" id="exportJsonBtn" title="Xuất dữ liệu sinh viên sang JSON">
-              📥 Xuất JSON
+            <button class="btn btn-secondary btn-sm" id="exportExcelBtn" title="Xuất dữ liệu sinh viên sang file Excel (.xlsx)">
+              📊 Xuất Excel
             </button>
             <button class="btn btn-primary" id="openAddStudentModalBtn">
               ➕ Thêm Sinh Viên Mới
@@ -460,6 +460,8 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
+  <!-- SheetJS Library for Excel Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Application Logic -->
   <script src="js/app.js"></script>
 </body>

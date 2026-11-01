@@ -130,8 +130,8 @@ function setupEventListeners() {
   document.getElementById('closeConfirmModalBtn')?.addEventListener('click', closeConfirmModal);
   document.getElementById('cancelConfirmModalBtn')?.addEventListener('click', closeConfirmModal);
 
-  // Export JSON
-  document.getElementById('exportJsonBtn')?.addEventListener('click', exportStudentsToJson);
+  // Export Excel
+  document.getElementById('exportExcelBtn')?.addEventListener('click', exportStudentsToExcel);
 
   // Table Column Sort
   document.querySelectorAll('th.sortable').forEach(th => {
@@ -815,21 +815,90 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-function exportStudentsToJson() {
-  if (!state.sinhVienData || !state.sinhVienData.items) {
+async function exportStudentsToExcel() {
+  if (typeof XLSX === 'undefined') {
+    showToast('Thư viện Excel chưa sẵn sàng, vui lòng thử lại sau...', 'warning');
+    return;
+  }
+
+  if (!state.sinhVienData || !state.sinhVienData.items || state.sinhVienData.items.length === 0) {
     showToast('Không có dữ liệu sinh viên để xuất', 'info');
     return;
   }
 
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.sinhVienData.items, null, 2));
-  const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", `danh_sach_sinh_vien_${new Date().toISOString().slice(0, 10)}.json`);
-  document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
-  downloadAnchor.remove();
+  let exportList = state.sinhVienData.items;
 
-  showToast('Đã xuất file JSON thành công!', 'success');
+  // Nếu có nhiều sinh viên hơn số lượng đang hiển thị trên trang hiện tại, lấy toàn bộ danh sách khớp bộ lọc
+  if (state.sinhVienData.totalCount > state.sinhVienData.items.length) {
+    try {
+      showToast('Đang chuẩn bị dữ liệu xuất toàn bộ sinh viên...', 'info');
+      const params = new URLSearchParams();
+      if (state.sinhVienQuery.searchTerm) params.append('searchTerm', state.sinhVienQuery.searchTerm);
+      if (state.sinhVienQuery.lopHocId) params.append('lopHocId', state.sinhVienQuery.lopHocId);
+      if (state.sinhVienQuery.gioiTinh) params.append('gioiTinh', state.sinhVienQuery.gioiTinh);
+      if (state.sinhVienQuery.trangThai) params.append('trangThai', state.sinhVienQuery.trangThai);
+      if (state.sinhVienQuery.xepLoai) params.append('xepLoai', state.sinhVienQuery.xepLoai);
+      params.append('sortBy', state.sinhVienQuery.sortBy);
+      params.append('isDescending', state.sinhVienQuery.isDescending);
+      params.append('pageIndex', '1');
+      params.append('pageSize', String(Math.min(state.sinhVienData.totalCount, 100)));
+
+      const res = await fetch(`${API_BASE}/sinhvien?${params.toString()}`);
+      const result = await res.json();
+      if (result.success && result.data && result.data.items) {
+        exportList = result.data.items;
+      }
+    } catch (err) {
+      console.warn('Không thể tải toàn bộ danh sách, xuất các dòng trên trang hiện tại:', err);
+    }
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const excelRows = exportList.map((sv, idx) => ({
+    'STT': idx + 1,
+    'Mã SV': sv.maSV,
+    'Họ và tên': sv.hoTen,
+    'Ngày sinh': formatDate(sv.ngaySinh),
+    'Giới tính': sv.gioiTinh,
+    'Lớp': sv.tenLop ? `${sv.tenLop} (${sv.maLop})` : (sv.maLop || ''),
+    'Khoa': sv.khoa || '',
+    'Điểm TB': Number(sv.diemTrungBinh ? sv.diemTrungBinh.toFixed(2) : 0),
+    'Xếp loại': sv.xepLoai || '',
+    'Trạng thái': sv.trangThai || '',
+    'Email': sv.email || '',
+    'Số điện thoại': sv.soDienThoai || '',
+    'Địa chỉ': sv.diaChi || ''
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(excelRows);
+
+  // Tự động căn chỉnh độ rộng cột
+  const colWidths = Object.keys(excelRows[0]).map(key => {
+    let maxLen = key.length;
+    excelRows.forEach(row => {
+      const val = row[key] !== null && row[key] !== undefined ? String(row[key]) : '';
+      if (val.length > maxLen) maxLen = val.length;
+    });
+    return { wch: Math.min(Math.max(maxLen + 3, 10), 40) };
+  });
+  worksheet['!cols'] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách sinh viên');
+
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `danh_sach_sinh_vien_${today}.xlsx`);
+
+  showToast(`Đã xuất ${excelRows.length} sinh viên sang file Excel thành công!`, 'success');
 }
 
 function escapeHtml(str) {

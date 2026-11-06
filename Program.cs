@@ -1,16 +1,8 @@
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using QuanLySinhVienAPI.Data;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Hỗ trợ cấu hình cổng linh hoạt cho Cloud (Render, Railway, Heroku)
-var port = Environment.GetEnvironmentVariable("PORT");
-if (!string.IsNullOrEmpty(port))
-{
-    builder.WebHost.UseUrls($"http://*:{port}");
-}
 
 // Thêm dịch vụ Controllers
 builder.Services.AddControllers();
@@ -58,12 +50,6 @@ app.MapScalarApiReference(options =>
 {
     options.WithTitle("EduManager - RESTful Web API Documentation")
            .WithTheme(ScalarTheme.Moon);
-});
-
-// Xử lý proxy headers khi chạy sau reverse proxy trên Render / Cloud
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
 // Chuyển tiếp route /swagger sang /scalar/v1 để tương thích
